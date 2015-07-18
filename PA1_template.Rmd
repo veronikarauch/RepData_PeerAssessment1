@@ -5,21 +5,130 @@ output:
     keep_md: true
 ---
 
+###1. Loading the data and packages used for analysing the data
 
-## Loading and preprocessing the data
+```{r echo = TRUE}
+library(dplyr)
+library(ggplot2)
+library(lattice)
+setwd("~/Downloads")
+unzip("repdata-data-activity.zip")
+df <- read.csv("activity.csv")
+```
+
+###2. Mean total number of steps taken per day
+- Total number of steps taken per day
+```{r echo = TRUE}
+df.na<-na.omit(df)
+df.day<-df.na %>%
+    group_by(date)%>%
+    summarise(tot.steps=sum(steps))
+df.day
+```
+
+- Histogramm of total numberof steps taken per day
+```{r echo = TRUE}
+b <- ggplot(df.day, aes(df.day$tot.steps))
+p<-b+geom_histogram(binwidth = 1000)+labs(title="Histogram of Steps Taken per Day", 
+                           x = "Number of Steps per Day", y = "Frequency")
+print(p)
+```
+
+- Mean and Median of Total number of steps per day
 
 
+```{r echo = TRUE}
+mean(df.day$tot.steps)
+```
 
-## What is mean total number of steps taken per day?
+```{r echo = TRUE}
+median(df.day$tot.steps)
+```
 
+### Average daily activity pattern
 
+- Time series plot of average daily activity
+```{r echo = TRUE}
+df$interval<-as.factor(df$interval)
+df.average<-df.na %>%
+    group_by(interval)%>%
+    summarise(average.steps=mean(steps))
+df.average
+with(df.average, plot(interval,average.steps, type="l"))
+```
 
-## What is the average daily activity pattern?
+- which interval contains the maximum steps
+```{r echo = TRUE}
+filter(df.average, average.steps==max(average.steps))
+```
+Therefore the interval with the maximum steps is interval 835 with an average of 206.1968 steps
 
+###Inputting missing values
 
+- Number of missing values 
+```{r echo = TRUE}
+miss <- is.na(df)
+sum(miss)
+```
 
-## Imputing missing values
+- Replace missing values by the average for the interval (step 2 and 3)
+```{r echo = TRUE}
+df.new <- df
+for(i in 1:length(df.new$steps)){
+     if (is.na(df.new$steps[i])) {
+    df.new$steps[i]<-df.average[df.new$interval[i],2]
+    }  
+    }
+df.new$steps<-as.numeric(df.new$steps)
+head(df.new)
+```
+- Histogramm of totalnumber of steps per day with new data set
+```{r echo = TRUE}
+df.new.day<-df.new %>%
+    group_by(date)%>%
+    summarise(tot.steps=sum(steps))
+df.new.day
 
+b <- ggplot(df.new.day, aes(tot.steps))
+p<-b+geom_histogram(binwidth = 1000)+labs(title="Histogram of Steps Taken per Day with New Data Set", 
+                           x = "Number of Steps per Day", y = "Frequency")
+print(p)
+```
 
+- Mean and Median of Total number of steps per day in New Data Set
 
-## Are there differences in activity patterns between weekdays and weekends?
+```{r echo = TRUE}
+mean(df.new.day$tot.steps)
+```
+
+```{r echo = TRUE}
+median(df.new.day$tot.steps)
+```
+
+Mean and Median in the dataset which has missing values filled in by the interval average are equal and are also equal to the mean of the original data set. However the median of the original data set differs by a value of 1.19 less.
+
+###Difference in activity Patterns, Weekends and Weekdays
+
+- Adding a new factor variable column
+```{r echo = TRUE}
+df.new$date<-as.Date(df.new$date)
+df.new$day.type<-weekdays(df.new$date)
+df.new$day.type[df.new$day.type=="Monday"]<-"Weekday"
+df.new$day.type[df.new$day.type=="Tuesday"]<-"Weekday"
+df.new$day.type[df.new$day.type=="Wednesday"]<-"Weekday"
+df.new$day.type[df.new$day.type=="Thursday"]<-"Weekday"
+df.new$day.type[df.new$day.type=="Friday"]<-"Weekday"
+df.new$day.type[df.new$day.type=="Saturday"]<-"Weekdend"
+df.new$day.type[df.new$day.type=="Sunday"]<-"Weekdend"
+df.new$day.type <- as.factor(df.new$day.type)
+```
+
+- timeseries plot with intervals averaged by weekdays and weekend days
+```{r echo = TRUE}
+df.average.type<-df.new %>%
+    group_by(day.type, interval)%>%
+    summarise(average.steps=mean(steps))
+df.average.type
+
+xyplot(average.steps ~ interval | day.type, df.average.type, type = "l", layout = c(1, 2), xlab = "Interval", ylab = "Number of steps")
+```
